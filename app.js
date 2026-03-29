@@ -110,6 +110,7 @@ const state = {
     catalog: [...FALLBACK_CATALOG],
     view: "overview",
     engineStatus: null,
+    openclawStatus: null,
     usesBackend: false,
 };
 
@@ -127,7 +128,7 @@ async function bootstrap() {
     renderAll();
     requestAnimationFrame(() => document.body.classList.add("ready"));
 
-    await Promise.allSettled([loadCatalog(), loadEngineStatus()]);
+    await Promise.allSettled([loadCatalog(), loadEngineStatus(), loadOpenClawStatus()]);
     await loadPersistedPortfolio();
     await refreshAnalysis({ silent: true });
 }
@@ -145,6 +146,7 @@ function bindUI() {
     document.getElementById("jump-action-button")?.addEventListener("click", () => setView("actions"));
     document.getElementById("export-button")?.addEventListener("click", () => window.print());
     document.getElementById("add-stock-button")?.addEventListener("click", addOrUpdateHolding);
+    document.getElementById("copy-openclaw-button")?.addEventListener("click", () => copyOpenClawCommand("ask"));
     document.getElementById("period-select")?.addEventListener("change", (event) => {
         state.period = event.target.value;
         persistState();
@@ -170,6 +172,11 @@ function bindUI() {
         const removeButton = event.target.closest(".pill-remove");
         if (removeButton) {
             removeHolding(removeButton.dataset.ticker);
+            return;
+        }
+        const commandButton = event.target.closest("[data-copy-command-target]");
+        if (commandButton) {
+            copyOpenClawCommand(commandButton.dataset.copyCommandTarget);
         }
     });
 
@@ -255,6 +262,26 @@ async function loadEngineStatus() {
     } catch (error) {
         state.engineStatus = { status: "offline", timestamp: fallbackTimestamp() };
     }
+    updateStatusPills();
+}
+
+async function loadOpenClawStatus() {
+    if (!canUseApi()) {
+        state.openclawStatus = fallbackOpenClawStatus();
+        renderOpenClaw();
+        updateStatusPills();
+        return;
+    }
+    try {
+        const response = await fetch("/api/openclaw/status");
+        if (!response.ok) {
+            throw new Error("OpenClaw status request failed.");
+        }
+        state.openclawStatus = await response.json();
+    } catch (error) {
+        state.openclawStatus = fallbackOpenClawStatus();
+    }
+    renderOpenClaw();
     updateStatusPills();
 }
 
@@ -793,6 +820,106 @@ function canUseApi() {
     return window.location.protocol.startsWith("http");
 }
 
+function fallbackOpenClawStatus() {
+    return {
+        status: "partial",
+        headline: "QuantBrief can still behave like an OpenClaw copilot while the gateway status is unavailable.",
+        summary: "Workspace file ready | Gateway state unknown | WhatsApp not configured | Telegram not configured",
+        workspaceNote: "Launch OpenClaw from this project folder so the QuantBrief MCP server and skill attach to the right workspace.",
+        model: "OpenClaw status unavailable",
+        gateway: {
+            configured: false,
+            reachable: false,
+            port: 18789,
+            mode: "local",
+            bind: "loopback",
+            authMode: "token",
+        },
+        workspace: {
+            configured: true,
+            mcpRegistered: true,
+            skillRegistered: true,
+            projectPath: window.location.href,
+            defaultWorkspace: "",
+            matchesProject: true,
+            mcpCwd: "",
+        },
+        channels: {
+            whatsappConfigured: false,
+            telegramConfigured: false,
+        },
+        commands: {
+            ask: 'openclaw agent --local --session-id qb --message "How does my portfolio look?"',
+            channels: "openclaw configure --section channels",
+            gateway: "openclaw gateway run --force",
+            probe: "openclaw gateway probe",
+        },
+        surfaces: [
+            {
+                id: "local-agent",
+                label: "Local Agent",
+                status: "ready",
+                detail: "Run QuantBrief from the CLI in this repo for the cleanest OpenClaw-native flow.",
+                meta: "Best for live testing while the backend is open.",
+                actionLabel: "Copy CLI prompt",
+                command: 'openclaw agent --local --session-id qb --message "How does my portfolio look?"',
+            },
+            {
+                id: "gateway",
+                label: "Gateway",
+                status: "setup",
+                detail: "Start the OpenClaw gateway to make channels and browser clients feel first-class.",
+                meta: "Loopback mode on port 18789 is the default local setup.",
+                actionLabel: "Copy gateway run",
+                command: "openclaw gateway run --force",
+            },
+            {
+                id: "whatsapp",
+                label: "WhatsApp",
+                status: "setup",
+                detail: "Use OpenClaw channel setup to turn WhatsApp into a QuantBrief front door.",
+                meta: "Great for mobile-first investor check-ins.",
+                actionLabel: "Copy channel setup",
+                command: "openclaw configure --section channels",
+            },
+            {
+                id: "telegram",
+                label: "Telegram",
+                status: "setup",
+                detail: "Telegram can mirror the same QuantBrief agent flow once channels are configured.",
+                meta: "Useful when you want bot UX without the terminal.",
+                actionLabel: "Copy channel setup",
+                command: "openclaw configure --section channels",
+            },
+        ],
+    };
+}
+
+function getOpenClawStatus() {
+    return state.openclawStatus || fallbackOpenClawStatus();
+}
+
+async function copyOpenClawCommand(target) {
+    const status = getOpenClawStatus();
+    const command = status.commands?.[target] || status.surfaces?.find((item) => item.id === target)?.command;
+    if (!command) {
+        toast("No OpenClaw command is available for that action yet.", "negative");
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(command);
+        const labelMap = {
+            ask: "OpenClaw agent prompt copied.",
+            gateway: "OpenClaw gateway command copied.",
+            channels: "OpenClaw channel setup command copied.",
+            probe: "OpenClaw probe command copied.",
+        };
+        toast(labelMap[target] || "OpenClaw command copied.", "positive");
+    } catch (error) {
+        toast("Clipboard access is blocked in this browser.", "negative");
+    }
+}
+
 function setBusy(buttons, busy) {
     buttons.filter(Boolean).forEach((button) => {
         button.disabled = busy;
@@ -870,6 +997,7 @@ function renderAll() {
         return;
     }
     renderHero();
+    renderOpenClaw();
     renderPortfolioStrip();
     renderAllocation();
     renderSnapshot();
@@ -886,9 +1014,9 @@ function renderHero() {
     const analysis = state.analysis;
     const topEvent = analysis.market.topEvent;
     const titleMap = {
-        ACCUMULATE: "Lean into the strongest pockets, but keep the book balanced.",
-        HOLD: "Hold the book together and add fresh risk selectively.",
-        REDUCE: "Cut the weakest exposure before reaching for more upside.",
+        ACCUMULATE: "OpenClaw sees room to add, but only into the strongest pockets.",
+        HOLD: "OpenClaw wants the book held together while fresh risk stays selective.",
+        REDUCE: "OpenClaw is flagging weaker exposure before you reach for more upside.",
     };
 
     setText("hero-title", titleMap[analysis.recommendation.action] || "See what changed, what matters, and what to do next.");
@@ -902,6 +1030,59 @@ function renderHero() {
     setText("metric-value", formatCompactMoney(analysis.portfolio.currentValue));
     setText("metric-profit", `${analysis.portfolio.netProfit >= 0 ? "+" : "-"}${formatCompactMoney(Math.abs(analysis.portfolio.netProfit))}`);
     setText("allocation-note", topEvent ? `Top driver: ${topEvent.title}` : "No single event dominates this book right now.");
+}
+
+function renderOpenClaw() {
+    const status = getOpenClawStatus();
+    setText("openclaw-headline", status.headline || "QuantBrief is being shaped into an OpenClaw-first product.");
+    setText("openclaw-summary", status.summary || "Gateway, workspace, and channels are loading.");
+    setText("openclaw-note", status.workspaceNote || "OpenClaw context will appear here.");
+
+    const points = document.getElementById("openclaw-points");
+    const channelGrid = document.getElementById("channel-grid");
+
+    if (points) {
+        points.innerHTML = [
+            openclawPoint(
+                status.gateway?.reachable ? "ready" : status.gateway?.configured ? "setup" : "offline",
+                "Gateway",
+                status.gateway?.reachable
+                    ? `Live on ws://127.0.0.1:${status.gateway.port} with ${status.gateway.authMode} auth.`
+                    : `Not fully reachable yet. Expected local port ${status.gateway?.port || 18789}.`
+            ),
+            openclawPoint(
+                status.workspace?.configured && status.workspace?.mcpRegistered ? "ready" : "setup",
+                "Workspace",
+                status.workspace?.matchesProject === false
+                    ? "Global OpenClaw defaults point elsewhere, so launch QuantBrief from this folder."
+                    : "QuantBrief ships its own workspace file, MCP registration, and local skill."
+            ),
+            openclawPoint(
+                status.channels?.whatsappConfigured || status.channels?.telegramConfigured ? "setup" : "offline",
+                "Channels",
+                status.channels?.whatsappConfigured || status.channels?.telegramConfigured
+                    ? "At least one mobile channel is configured. Finish the rest to make QuantBrief fully chat-first."
+                    : "WhatsApp and Telegram still need setup through the OpenClaw channel wizard."
+            ),
+        ].join("");
+    }
+
+    if (channelGrid) {
+        channelGrid.innerHTML = (status.surfaces || []).map((surface) => `
+            <article class="channel-card">
+                <div class="channel-topline">
+                    <div>
+                        <p class="panel-kicker">${surface.label}</p>
+                        <strong>${surface.label}</strong>
+                    </div>
+                    <span class="channel-status ${surface.status}">${surface.status}</span>
+                </div>
+                <p>${surface.detail}</p>
+                <small>${surface.meta}</small>
+                <button class="ghost-button" data-copy-command-target="${surface.id === "gateway" && surface.status === "ready" ? "probe" : surface.id === "local-agent" ? "ask" : surface.id === "gateway" ? "gateway" : "channels"}" type="button">${surface.actionLabel}</button>
+            </article>
+        `).join("");
+    }
 }
 
 function renderPortfolioStrip() {
@@ -1200,6 +1381,7 @@ function renderDeep() {
 function updateStatusPills() {
     const enginePill = document.getElementById("engine-pill");
     const dataPill = document.getElementById("data-pill");
+    const clawPill = document.getElementById("claw-pill");
     if (!enginePill || !dataPill) {
         return;
     }
@@ -1212,6 +1394,31 @@ function updateStatusPills() {
 
     const sourceLabel = state.usesBackend ? formatDataSource(state.analysis.dataSource) : "Local demo";
     dataPill.textContent = sourceLabel;
+
+    if (clawPill) {
+        const openclaw = getOpenClawStatus();
+        if (openclaw.gateway?.reachable && openclaw.channels?.whatsappConfigured) {
+            clawPill.textContent = "OpenClaw + WhatsApp live";
+        } else if (openclaw.gateway?.reachable) {
+            clawPill.textContent = "OpenClaw live";
+        } else if (openclaw.workspace?.configured) {
+            clawPill.textContent = "OpenClaw workspace ready";
+        } else {
+            clawPill.textContent = "OpenClaw setup needed";
+        }
+    }
+}
+
+function openclawPoint(tone, title, detail) {
+    return `
+        <div class="openclaw-point">
+            <span class="point-dot ${tone}"></span>
+            <div>
+                <strong>${title}</strong>
+                <small>${detail}</small>
+            </div>
+        </div>
+    `;
 }
 
 function snapshotCard(label, value, detail) {

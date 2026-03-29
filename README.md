@@ -52,6 +52,7 @@ flowchart LR
 
 - `GET /` serves the frontend
 - `GET /api/health` returns engine and dependency status
+- `GET /api/openclaw/status` reports gateway, workspace, and channel readiness
 - `GET /api/stocks` lists supported Indian and US tickers
 - `GET /api/portfolio` reads the persisted portfolio
 - `PUT /api/portfolio` saves the persisted portfolio to SQLite
@@ -73,6 +74,7 @@ QuantBrief-v3/
 |-- analysis_engine.py   # Shared quant logic, events, scenarios, recommendations
 |-- backend.py           # FastAPI server and API routes
 |-- portfolio_store.py   # SQLite persistence for the active portfolio
+|-- openclaw_status.py   # OpenClaw gateway, workspace, and channel status
 |-- mcp_server.py        # OpenClaw MCP server
 |-- index.html           # Frontend shell
 |-- index.css            # Visual system and responsive styling

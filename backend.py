@@ -15,6 +15,7 @@ from analysis_engine import (
     list_supported_stocks,
     warm_engine,
 )
+from openclaw_status import get_openclaw_status
 from portfolio_store import initialize_store, load_portfolio_state, save_portfolio_state
 
 
@@ -106,6 +107,11 @@ async def save_portfolio(request: PortfolioRequest) -> dict:
 @app.get("/api/health")
 async def health() -> dict:
     return get_engine_status()
+
+
+@app.get("/api/openclaw/status")
+async def openclaw_status() -> dict:
+    return get_openclaw_status(BASE_DIR)
 
 
 if __name__ == "__main__":

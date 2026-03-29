@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="QuantBrief turns portfolio holdings into a clear market brief with risk, conviction, and next-step actions.">
-    <title>QuantBrief | Decision Studio</title>
+    <meta name="description" content="QuantBrief is an OpenClaw-native portfolio copilot with decision briefs, channels, and live quant analysis.">
+    <title>QuantBrief | OpenClaw Portfolio Copilot</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='7' fill='%230d1513'/><path d='M7 20V8h7.4c3.6 0 5.7 1.9 5.7 4.8 0 3.3-2.4 5.2-6.1 5.2H10v2H7zm3-5h4c1.9 0 3-0.8 3-2.1 0-1.2-0.9-1.9-2.7-1.9H10v4z' fill='%23d8ff72'/></svg>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,25 +18,27 @@
             <div class="brand-lockup">
                 <div class="brand-mark">QB</div>
                 <div>
-                    <p class="eyebrow">Portfolio Operating System</p>
+                    <p class="eyebrow">OpenClaw-Native Portfolio Agent</p>
                     <h1>QuantBrief</h1>
                 </div>
             </div>
             <div class="masthead-tools">
                 <div class="status-pill" id="engine-pill">Engine booting</div>
                 <div class="status-pill muted" id="data-pill">Awaiting analysis</div>
+                <div class="status-pill muted" id="claw-pill">OpenClaw status</div>
                 <button class="ghost-button" id="export-button" type="button">Print brief</button>
             </div>
         </header>
 
         <section class="hero-band reveal" data-delay="80">
             <div class="hero-copy">
-                <p class="eyebrow">Decision Brief</p>
-                <h2 id="hero-title">See what changed, what matters, and what to do next.</h2>
+                <p class="eyebrow">OpenClaw Decision Brief</p>
+                <h2 id="hero-title">Bring the portfolio brief into chat, channels, and action.</h2>
                 <p class="hero-summary" id="hero-summary">Loading your portfolio readout.</p>
                 <div class="hero-actions">
                     <button class="primary-button" id="refresh-button" type="button">Refresh analysis</button>
                     <button class="ghost-button" id="jump-action-button" type="button">Open actions</button>
+                    <button class="ghost-button" id="copy-openclaw-button" type="button">Copy OpenClaw prompt</button>
                 </div>
             </div>
             <div class="hero-scoreboard">
@@ -109,6 +111,29 @@
                         </div>
                     </div>
                     <div class="portfolio-strip" id="portfolio-strip"></div>
+                </section>
+
+                <section class="panel openclaw-band reveal" data-delay="180">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">OpenClaw Cockpit</p>
+                            <h3>Run QuantBrief from the web, CLI, WhatsApp, or Telegram.</h3>
+                        </div>
+                        <p class="panel-note" id="openclaw-note">Checking gateway, workspace, and channel readiness.</p>
+                    </div>
+                    <div class="openclaw-layout">
+                        <div class="openclaw-copy">
+                            <h4 class="openclaw-headline" id="openclaw-headline">OpenClaw status is loading.</h4>
+                            <p class="openclaw-summary" id="openclaw-summary">QuantBrief is gathering gateway, workspace, and channel context.</p>
+                            <div class="openclaw-points" id="openclaw-points"></div>
+                            <div class="command-cluster">
+                                <button class="ghost-button command-button" data-copy-command-target="ask" type="button">Copy agent prompt</button>
+                                <button class="ghost-button command-button" data-copy-command-target="gateway" type="button">Copy gateway command</button>
+                                <button class="ghost-button command-button" data-copy-command-target="channels" type="button">Copy channel setup</button>
+                            </div>
+                        </div>
+                        <div class="channel-grid" id="channel-grid"></div>
+                    </div>
                 </section>
 
                 <section class="overview-grid">
