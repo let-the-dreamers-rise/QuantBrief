@@ -37,6 +37,12 @@ flowchart LR
     UI -->|fallback mode| ENGINE
 ```
 
+Exported diagram files:
+
+- [docs/system-architecture.png](C:/Users/ASHWIN%20GOYAL/Downloads/QuantBrief-v3/docs/system-architecture.png)
+- [docs/system-architecture.pdf](C:/Users/ASHWIN%20GOYAL/Downloads/QuantBrief-v3/docs/system-architecture.pdf)
+- [docs/system-architecture.mmd](C:/Users/ASHWIN%20GOYAL/Downloads/QuantBrief-v3/docs/system-architecture.mmd)
+
 ## Core Capabilities
 
 ### Web Application
@@ -178,12 +184,37 @@ The repository already includes an `openclaw.json` workspace configuration and a
 python backend.py
 ```
 
-### Run an OpenClaw session
+### Start the QuantBrief OpenClaw gateway
+
+```powershell
+openclaw --profile quantbrief gateway
+```
+
+### Run a local OpenClaw session
 
 ```powershell
 $env:PYTHONIOENCODING="utf-8"
-openclaw agent --local --session-id qb --message "How does my portfolio look?"
+openclaw --profile quantbrief agent --local --session-id qb --message "How does my portfolio look?"
 ```
+
+### Use WhatsApp with the linked personal account
+
+QuantBrief is currently linked to your personal WhatsApp, but it is intentionally locked down to your own identity:
+
+- `dmPolicy: "allowlist"`
+- `allowFrom: ["+918097251640"]`
+- `selfChatMode: true`
+- `groupPolicy: "disabled"`
+
+That means the safest supported flow is:
+
+1. Keep the backend running.
+2. Keep the QuantBrief gateway running with `openclaw --profile quantbrief gateway`.
+3. Open your WhatsApp self-chat / message-yourself thread.
+4. Send prompts there, for example:
+   - `How does my portfolio look?`
+   - `Should I buy HDFCBANK?`
+   - `What is the biggest risk in my portfolio?`
 
 ### Example prompts
 
@@ -218,7 +249,8 @@ Recommended steps:
 
 - Free-tier Groq usage can rate-limit OpenClaw interactions.
 - First-run warmup can be slower while optional quant dependencies initialize.
-- WhatsApp and Telegram channel setup still depends on OpenClaw's interactive configuration flow.
+- WhatsApp is linked on the QuantBrief profile, but native Windows pairing/relink behavior can still be flaky on some OpenClaw builds.
+- Telegram is plugin-enabled but not configured with a bot token yet.
 - SQLite currently stores one active portfolio state, not full multi-user accounts.
 
 ## Recommended Next Steps

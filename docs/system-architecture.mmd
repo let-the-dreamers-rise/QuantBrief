@@ -1,0 +1,18 @@
+flowchart LR
+    USER["Investor / Demo User"] --> UI["QuantBrief Web UI<br/>index.html / app.js / index.css"]
+    USER --> WA["WhatsApp Self-Chat<br/>OpenClaw personal number"]
+    USER --> CLI["OpenClaw Local Agent CLI"]
+
+    UI --> API["FastAPI Backend<br/>backend.py"]
+    API --> ENGINE["Shared Analysis Engine<br/>analysis_engine.py"]
+    API --> STORE["SQLite Portfolio Store<br/>portfolio_store.py"]
+    API --> STATUS["OpenClaw Status Layer<br/>openclaw_status.py"]
+
+    CLI --> GATEWAY["OpenClaw Gateway<br/>profile: quantbrief"]
+    WA --> GATEWAY
+    GATEWAY --> MCP["QuantBrief MCP Server<br/>mcp_server.py"]
+    MCP --> ENGINE
+
+    ENGINE --> DATA["Live Data / Fallback Models<br/>yfinance / quantstats / heuristics"]
+    STATUS --> GATEWAY
+    STATUS --> API

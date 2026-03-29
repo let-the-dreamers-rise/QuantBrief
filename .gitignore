@@ -12,3 +12,14 @@ backend-smoke.log
 quantbrief.db
 quantbrief.db-*
 output/
+.openclaw/
+memory/
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+quantbrief-whatsapp-login-status.json
+quantbrief-whatsapp-qr.png

@@ -9,6 +9,10 @@ from typing import Any
 
 WINDOWS_OPENCLAW_CMD = Path.home() / "AppData" / "Roaming" / "npm" / "openclaw.cmd"
 GLOBAL_OPENCLAW_CONFIG = Path.home() / ".openclaw" / "openclaw.json"
+PROFILE_NAME = "quantbrief"
+PROFILE_OPENCLAW_CONFIG = Path.home() / f".openclaw-{PROFILE_NAME}" / "openclaw.json"
+PROFILE_STATE_DIR = Path.home() / f".openclaw-{PROFILE_NAME}"
+WHATSAPP_CREDS_PATH = PROFILE_STATE_DIR / "credentials" / "whatsapp" / "default" / "creds.json"
 DEFAULT_GATEWAY_PORT = 18789
 
 
@@ -43,10 +47,19 @@ def _status_label(reachable: bool, configured: bool) -> str:
     return "offline"
 
 
+def _file_has_payload(path: Path) -> bool:
+    try:
+        return path.exists() and path.stat().st_size > 0
+    except Exception:
+        return False
+
+
 def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     workspace_config = _load_json(project_dir / "openclaw.json")
-    global_config = _load_json(GLOBAL_OPENCLAW_CONFIG)
+    profile_config = _load_json(PROFILE_OPENCLAW_CONFIG)
+    global_config = profile_config or _load_json(GLOBAL_OPENCLAW_CONFIG)
+    active_config_path = PROFILE_OPENCLAW_CONFIG if profile_config else GLOBAL_OPENCLAW_CONFIG
 
     gateway_config = global_config.get("gateway") if isinstance(global_config.get("gateway"), dict) else {}
     auth_config = gateway_config.get("auth") if isinstance(gateway_config.get("auth"), dict) else {}
@@ -62,40 +75,53 @@ def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
     installed = bool(shutil.which("openclaw") or WINDOWS_OPENCLAW_CMD.exists())
 
     channels_config = global_config.get("channels") if isinstance(global_config.get("channels"), dict) else {}
+    login_status = _load_json(project_dir / "quantbrief-whatsapp-login-status.json")
+    whatsapp_login_stage = str(login_status.get("stage") or "").strip().lower()
+
     whatsapp_configured = _has_payload(channels_config.get("whatsapp"))
+    whatsapp_linked = _file_has_payload(WHATSAPP_CREDS_PATH)
     telegram_configured = _has_payload(channels_config.get("telegram"))
 
     workspace_ready = bool(workspace_config) and bool(workspace_mcp)
     skill_ready = any(str(item).startswith("./skills") or str(item).endswith("/skills") for item in skills)
     default_workspace_matches = default_workspace.lower() == str(project_dir).lower()
+    profile_prefix = f"openclaw --profile {PROFILE_NAME}" if active_config_path == PROFILE_OPENCLAW_CONFIG else "openclaw"
 
     ask_command = (
         f'Set-Location "{project_dir}"; '
         '$env:PYTHONIOENCODING="utf-8"; '
-        'openclaw agent --local --session-id qb --message "How does my portfolio look?"'
+        f'{profile_prefix} agent --local --session-id qb --message "How does my portfolio look?"'
     )
-    channel_setup_command = "openclaw configure --section channels"
-    gateway_run_command = "openclaw gateway run --force"
-    gateway_probe_command = "openclaw gateway probe"
+    channel_setup_command = f"{profile_prefix} configure --section channels"
+    gateway_run_command = f"{profile_prefix} gateway"
+    gateway_probe_command = f"{profile_prefix} gateway probe"
+    whatsapp_login_command = f'Set-Location "{project_dir}"; node scripts/openclaw_whatsapp_login.mjs'
 
-    if gateway_reachable and whatsapp_configured and telegram_configured:
-        headline = "QuantBrief is wired into OpenClaw across chat, gateway, and channels."
+    if gateway_reachable and whatsapp_linked:
+        headline = "QuantBrief is live in OpenClaw and WhatsApp is linked as the chat front door."
+    elif gateway_reachable and whatsapp_login_stage in {"qr_ready", "waiting"}:
+        headline = "QuantBrief is live in OpenClaw and the WhatsApp QR is waiting for your scan."
     elif gateway_reachable:
-        headline = "QuantBrief is live in OpenClaw, but messaging channels still need to be connected."
+        headline = "QuantBrief is live in OpenClaw, but messaging channels still need to be linked."
     else:
         headline = "QuantBrief is OpenClaw-ready, but the gateway and mobile channels need more setup."
 
     workspace_note = (
-        "OpenClaw's global default workspace points somewhere else, so launch QuantBrief from this folder to guarantee the right MCP tools."
-        if default_workspace and not default_workspace_matches
-        else "This project already ships its own OpenClaw workspace file, MCP registration, and skill."
+        f"QuantBrief is using the dedicated OpenClaw profile '{PROFILE_NAME}', so it stays isolated from your other workspaces."
+        if active_config_path == PROFILE_OPENCLAW_CONFIG
+        else (
+            "OpenClaw's global default workspace points somewhere else, so launch QuantBrief from this folder to guarantee the right MCP tools."
+            if default_workspace and not default_workspace_matches
+            else "This project already ships its own OpenClaw workspace file, MCP registration, and skill."
+        )
     )
+    config_note = f"Profile config: {active_config_path}" if active_config_path == PROFILE_OPENCLAW_CONFIG else "Using the default OpenClaw home."
 
     summary_bits = [
         f"Gateway on port {port}" if gateway_configured else "Gateway not configured",
         f"model {default_model}" if default_model else "model not configured",
-        "WhatsApp ready" if whatsapp_configured else "WhatsApp not configured",
-        "Telegram ready" if telegram_configured else "Telegram not configured",
+        "WhatsApp linked" if whatsapp_linked else "WhatsApp awaiting scan" if whatsapp_login_stage in {"qr_ready", "waiting"} else "WhatsApp configured" if whatsapp_configured else "WhatsApp not configured",
+        "Telegram configured" if telegram_configured else "Telegram not configured",
     ]
 
     surfaces = [
@@ -124,15 +150,23 @@ def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
         {
             "id": "whatsapp",
             "label": "WhatsApp",
-            "status": "ready" if whatsapp_configured else "setup",
+            "status": "ready" if whatsapp_linked else "setup" if whatsapp_configured else "offline",
             "detail": (
-                "WhatsApp channel is already configured in OpenClaw and can be used as a mobile front door for portfolio briefs."
+                "WhatsApp is linked and ready to act as QuantBrief's primary chat front door."
+                if whatsapp_linked
+                else "The WhatsApp QR is live right now. Scan it in WhatsApp -> Linked Devices to finish linking QuantBrief."
+                if whatsapp_login_stage in {"qr_ready", "waiting"}
+                else "WhatsApp channel is configured in the QuantBrief profile and can become the primary chat front door once you scan the QR."
                 if whatsapp_configured
-                else "WhatsApp is not configured yet. Use the OpenClaw channel wizard to connect it and make QuantBrief feel chat-first."
+                else "WhatsApp is not configured yet. Use the QuantBrief OpenClaw profile to connect it and make QuantBrief feel chat-first."
             ),
-            "meta": "Ideal for quick retail-investor check-ins and push-style decision briefs.",
-            "actionLabel": "Copy channel setup",
-            "command": channel_setup_command,
+            "meta": (
+                f"Ideal for quick retail-investor check-ins and push-style decision briefs. QR file: {login_status.get('qrPath')}."
+                if login_status.get("qrPath")
+                else f"Ideal for quick retail-investor check-ins and push-style decision briefs. {config_note}"
+            ),
+            "actionLabel": "Copy WhatsApp login",
+            "command": whatsapp_login_command,
         },
         {
             "id": "telegram",
@@ -175,11 +209,14 @@ def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
         },
         "channels": {
             "whatsappConfigured": whatsapp_configured,
+            "whatsappLinked": whatsapp_linked,
+            "whatsappLoginStage": whatsapp_login_stage,
             "telegramConfigured": telegram_configured,
         },
         "commands": {
             "ask": ask_command,
             "channels": channel_setup_command,
+            "whatsappLogin": whatsapp_login_command,
             "gateway": gateway_run_command,
             "probe": gateway_probe_command,
         },
