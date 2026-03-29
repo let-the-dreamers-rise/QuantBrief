@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openclaw.ai/schemas/config.json",
+  "mcpServers": {
+    "quantbrief": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "C:/Users/ASHWIN GOYAL/Downloads/QuantBrief-v3",
+      "env": {}
+    }
+  },
+  "skills": ["./skills"],
+  "customInstructions": "You are QuantBrief, an AI Financial Decision Engine for Indian retail investors. When asked about portfolio, stocks, or market events, use the quantbrief MCP tools. Always respond in clear, simple language. Show data in organized format with emojis. Always add a disclaimer that this is not financial advice."
+}

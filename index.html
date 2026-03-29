@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="QuantBrief turns portfolio holdings into a clear market brief with risk, conviction, and next-step actions.">
+    <title>QuantBrief | Decision Studio</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='7' fill='%230d1513'/><path d='M7 20V8h7.4c3.6 0 5.7 1.9 5.7 4.8 0 3.3-2.4 5.2-6.1 5.2H10v2H7zm3-5h4c1.9 0 3-0.8 3-2.1 0-1.2-0.9-1.9-2.7-1.9H10v4z' fill='%23d8ff72'/></svg>" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="backdrop"></div>
+    <div class="app-shell">
+        <header class="masthead reveal">
+            <div class="brand-lockup">
+                <div class="brand-mark">QB</div>
+                <div>
+                    <p class="eyebrow">Portfolio Operating System</p>
+                    <h1>QuantBrief</h1>
+                </div>
+            </div>
+            <div class="masthead-tools">
+                <div class="status-pill" id="engine-pill">Engine booting</div>
+                <div class="status-pill muted" id="data-pill">Awaiting analysis</div>
+                <button class="ghost-button" id="export-button" type="button">Print brief</button>
+            </div>
+        </header>
+
+        <section class="hero-band reveal" data-delay="80">
+            <div class="hero-copy">
+                <p class="eyebrow">Decision Brief</p>
+                <h2 id="hero-title">See what changed, what matters, and what to do next.</h2>
+                <p class="hero-summary" id="hero-summary">Loading your portfolio readout.</p>
+                <div class="hero-actions">
+                    <button class="primary-button" id="refresh-button" type="button">Refresh analysis</button>
+                    <button class="ghost-button" id="jump-action-button" type="button">Open actions</button>
+                </div>
+            </div>
+            <div class="hero-scoreboard">
+                <article class="metric-tile">
+                    <span class="metric-label">Decision</span>
+                    <strong id="metric-decision">--</strong>
+                    <small id="metric-confidence">--</small>
+                </article>
+                <article class="metric-tile">
+                    <span class="metric-label">CAGR</span>
+                    <strong id="metric-cagr">--</strong>
+                    <small id="metric-health">--</small>
+                </article>
+                <article class="metric-tile">
+                    <span class="metric-label">Sharpe</span>
+                    <strong id="metric-sharpe">--</strong>
+                    <small id="metric-volatility">--</small>
+                </article>
+                <article class="metric-tile">
+                    <span class="metric-label">Current value</span>
+                    <strong id="metric-value">--</strong>
+                    <small id="metric-profit">--</small>
+                </article>
+            </div>
+        </section>
+
+        <nav class="workspace-nav reveal" data-delay="120" aria-label="Workspace">
+            <button class="nav-button is-active" data-view="overview" type="button">Overview</button>
+            <button class="nav-button" data-view="market" type="button">Market Pulse</button>
+            <button class="nav-button" data-view="actions" type="button">What To Do</button>
+            <button class="nav-button" data-view="deep" type="button">Deep Analysis</button>
+        </nav>
+
+        <main class="workspace">
+            <section class="view is-active" id="view-overview">
+                <section class="panel editor-band reveal" data-delay="160">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">Portfolio Editor</p>
+                            <h3>Shape the book, then rerun the brief.</h3>
+                        </div>
+                        <p class="panel-note">Weights auto-normalize after every edit so the portfolio always stays coherent.</p>
+                    </div>
+                    <div class="control-grid">
+                        <label class="field">
+                            <span class="field-label">AUM</span>
+                            <input id="aum-input" type="number" min="10000" step="10000" value="2500000">
+                        </label>
+                        <label class="field">
+                            <span class="field-label">Period</span>
+                            <select id="period-select">
+                                <option value="1y">1 year</option>
+                                <option value="3y" selected>3 years</option>
+                                <option value="5y">5 years</option>
+                            </select>
+                        </label>
+                        <label class="field field-wide">
+                            <span class="field-label">Add or update stock</span>
+                            <select id="stock-select"></select>
+                        </label>
+                        <label class="field">
+                            <span class="field-label">Weight %</span>
+                            <input id="weight-input" type="number" min="1" max="100" step="1" placeholder="10">
+                        </label>
+                        <div class="field action-field">
+                            <button class="ghost-button full-width" id="add-stock-button" type="button">Add or update</button>
+                        </div>
+                        <div class="field action-field">
+                            <button class="primary-button full-width" id="run-analysis-button" type="button">Run analysis</button>
+                        </div>
+                    </div>
+                    <div class="portfolio-strip" id="portfolio-strip"></div>
+                </section>
+
+                <section class="overview-grid">
+                    <section class="panel allocation-panel reveal" data-delay="200">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Capital Map</p>
+                                <h3>Allocation footprint</h3>
+                            </div>
+                            <p class="panel-note" id="allocation-note">Updated from the latest analysis payload.</p>
+                        </div>
+                        <div class="allocation-body">
+                            <div class="allocation-ring-shell">
+                                <div class="allocation-ring" id="allocation-ring">
+                                    <div class="allocation-ring-center">
+                                        <strong id="allocation-value">--</strong>
+                                        <span id="allocation-caption">Notional allocation</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation-legend" id="allocation-legend"></div>
+                        </div>
+                    </section>
+
+                    <section class="panel snapshot-panel reveal" data-delay="220">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Snapshot</p>
+                                <h3>Portfolio posture</h3>
+                            </div>
+                            <p class="panel-note">This side reads the portfolio without forcing you into the trade list yet.</p>
+                        </div>
+                        <div class="snapshot-grid" id="snapshot-grid"></div>
+                        <div class="sector-stack" id="sector-stack"></div>
+                    </section>
+                </section>
+
+                <section class="panel positions-panel reveal" data-delay="240">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">Positions</p>
+                            <h3>Every holding, in one scan</h3>
+                        </div>
+                        <p class="panel-note">Trend, risk, model posture, and event sensitivity sit together here.</p>
+                    </div>
+                    <div class="positions-table" id="positions-table"></div>
+                </section>
+
+                <section class="overview-grid secondary-grid">
+                    <section class="panel correlation-panel reveal" data-delay="260">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Interaction</p>
+                                <h3>Correlation map</h3>
+                            </div>
+                            <p class="panel-note">Look for crowding before adding more exposure to the same move.</p>
+                        </div>
+                        <div class="matrix-wrap" id="correlation-grid"></div>
+                    </section>
+
+                    <section class="panel scenario-panel reveal" data-delay="280">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Scenario Range</p>
+                                <h3>What the path can look like</h3>
+                            </div>
+                            <p class="panel-note">Outcome framing beats a single upside number.</p>
+                        </div>
+                        <div class="scenario-list" id="scenario-list"></div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="view" id="view-market">
+                <section class="panel narrative-panel reveal" data-delay="160">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">Dominant Theme</p>
+                            <h3 id="market-headline">Loading market context</h3>
+                        </div>
+                        <p class="panel-note" id="market-summary">The highest-conviction event will appear here.</p>
+                    </div>
+                    <div class="priority-stats" id="priority-stats"></div>
+                    <div class="impact-strip" id="impact-strip"></div>
+                </section>
+
+                <section class="market-grid">
+                    <section class="panel event-panel reveal" data-delay="200">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Event Stack</p>
+                                <h3>Ranked by portfolio impact</h3>
+                            </div>
+                            <p class="panel-note">This list is personalized to your current holdings, not the market in general.</p>
+                        </div>
+                        <div class="event-stack" id="event-stack"></div>
+                    </section>
+
+                    <section class="panel flow-panel reveal" data-delay="220">
+                        <div class="panel-head">
+                            <div>
+                                <p class="panel-kicker">Crosswinds</p>
+                                <h3>Sector pressure and institutional flows</h3>
+                            </div>
+                            <p class="panel-note" id="flow-summary">Flow narrative will update after each run.</p>
+                        </div>
+                        <div class="sector-meter" id="market-sector-stack"></div>
+                        <div class="flow-list" id="flow-list"></div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="view" id="view-actions">
+                <section class="panel decision-panel reveal" data-delay="160">
+                    <div class="decision-topline">
+                        <div>
+                            <p class="panel-kicker">Recommended Posture</p>
+                            <h3 id="decision-headline">Waiting for analysis</h3>
+                        </div>
+                        <div class="decision-badge" id="decision-badge">--</div>
+                    </div>
+                    <div class="decision-body">
+                        <p class="decision-summary" id="decision-summary">The next action will appear here after analysis.</p>
+                        <div class="signal-board" id="signal-board"></div>
+                    </div>
+                    <div class="driver-list" id="driver-list"></div>
+                </section>
+
+                <section class="action-columns reveal" data-delay="220">
+                    <section class="panel lane-panel">
+                        <div class="lane-head">
+                            <p class="panel-kicker">Add</p>
+                            <h3>Lean into these first</h3>
+                        </div>
+                        <div class="lane-list" id="add-lane"></div>
+                    </section>
+                    <section class="panel lane-panel">
+                        <div class="lane-head">
+                            <p class="panel-kicker">Hold</p>
+                            <h3>Keep these working</h3>
+                        </div>
+                        <div class="lane-list" id="hold-lane"></div>
+                    </section>
+                    <section class="panel lane-panel">
+                        <div class="lane-head">
+                            <p class="panel-kicker">De-risk</p>
+                            <h3>Watch sizing and volatility</h3>
+                        </div>
+                        <div class="lane-list" id="trim-lane"></div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="view" id="view-deep">
+                <section class="panel pipeline-panel reveal" data-delay="160">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">Deep Analysis</p>
+                            <h3>Nine-step decision path</h3>
+                        </div>
+                        <p class="panel-note">This is the reasoning scaffold behind the short recommendation.</p>
+                    </div>
+                    <div class="pipeline-list" id="pipeline-list"></div>
+                </section>
+
+                <section class="panel assumptions-panel reveal" data-delay="220">
+                    <div class="panel-head">
+                        <div>
+                            <p class="panel-kicker">Limits</p>
+                            <h3>Assumptions and engine state</h3>
+                        </div>
+                        <p class="panel-note">Useful when you want to separate system confidence from system completeness.</p>
+                    </div>
+                    <div class="assumptions-list" id="assumptions-list"></div>
+                    <div class="meta-grid">
+                        <article class="meta-card">
+                            <span class="meta-label">Data source</span>
+                            <strong id="meta-source">--</strong>
+                        </article>
+                        <article class="meta-card">
+                            <span class="meta-label">Generated</span>
+                            <strong id="meta-time">--</strong>
+                        </article>
+                        <article class="meta-card">
+                            <span class="meta-label">Holdings</span>
+                            <strong id="meta-holdings">--</strong>
+                        </article>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <nav class="mobile-nav" aria-label="Mobile Workspace">
+        <button class="mobile-nav-button is-active" data-view="overview" type="button">Overview</button>
+        <button class="mobile-nav-button" data-view="market" type="button">Market</button>
+        <button class="mobile-nav-button" data-view="actions" type="button">Actions</button>
+        <button class="mobile-nav-button" data-view="deep" type="button">Deep</button>
+    </nav>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
