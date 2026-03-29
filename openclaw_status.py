@@ -54,6 +54,17 @@ def _file_has_payload(path: Path) -> bool:
         return False
 
 
+def _telegram_is_configured(channels_config: dict[str, Any]) -> bool:
+    telegram = channels_config.get("telegram")
+    if not isinstance(telegram, dict):
+        return False
+    return bool(
+        telegram.get("token")
+        or telegram.get("botToken")
+        or telegram.get("bot_token")
+    )
+
+
 def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
     project_dir = project_dir.resolve()
     workspace_config = _load_json(project_dir / "openclaw.json")
@@ -80,7 +91,7 @@ def get_openclaw_status(project_dir: Path) -> dict[str, Any]:
 
     whatsapp_configured = _has_payload(channels_config.get("whatsapp"))
     whatsapp_linked = _file_has_payload(WHATSAPP_CREDS_PATH)
-    telegram_configured = _has_payload(channels_config.get("telegram"))
+    telegram_configured = _telegram_is_configured(channels_config)
 
     workspace_ready = bool(workspace_config) and bool(workspace_mcp)
     skill_ready = any(str(item).startswith("./skills") or str(item).endswith("/skills") for item in skills)
